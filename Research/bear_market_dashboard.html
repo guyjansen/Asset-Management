@@ -1,0 +1,1344 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Asset Classes During Bear Markets</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;600&family=IBM+Plex+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  :root {
+    --bg: #0a0b0d;
+    --surface: #111318;
+    --surface2: #181b22;
+    --border: #222530;
+    --border2: #2d3140;
+    --text: #e8eaf0;
+    --muted: #6b7280;
+    --dim: #3d4352;
+    --amber: #f5a623;
+    --red: #e84040;
+    --green: #2ecc71;
+    --blue: #4a9eff;
+    --purple: #9b6dff;
+    --teal: #00d4b4;
+    --font-mono: 'IBM Plex Mono', monospace;
+    --font-sans: 'IBM Plex Sans', sans-serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-sans);
+    font-size: 13px;
+    line-height: 1.5;
+    min-height: 100vh;
+    padding: 0;
+  }
+
+  /* ── HEADER ── */
+  header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 20px 32px;
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+
+  .header-left h1 {
+    font-family: var(--font-mono);
+    font-size: 18px;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    color: var(--text);
+  }
+  .header-left h1 span { color: var(--amber); }
+  .header-sub {
+    font-size: 11px;
+    color: var(--muted);
+    font-family: var(--font-mono);
+    margin-top: 2px;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+
+  .header-tags { display: flex; gap: 8px; }
+  .tag {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    padding: 3px 8px;
+    border: 1px solid var(--border2);
+    color: var(--muted);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  .tag.active { border-color: var(--amber); color: var(--amber); }
+
+  /* ── NAV TABS ── */
+  nav {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 0 32px;
+    display: flex;
+    gap: 0;
+  }
+  .tab {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding: 12px 20px;
+    color: var(--muted);
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: all 0.15s;
+    user-select: none;
+  }
+  .tab:hover { color: var(--text); }
+  .tab.active { color: var(--amber); border-bottom-color: var(--amber); }
+
+  /* ── LAYOUT ── */
+  .main { padding: 24px 32px; }
+
+  .section { display: none; }
+  .section.active { display: block; }
+
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px; }
+  .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; margin-bottom: 20px; }
+  .grid-full { margin-bottom: 20px; }
+
+  /* ── CARD ── */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 20px 22px;
+    position: relative;
+  }
+  .card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: var(--border2);
+  }
+  .card.accent-amber::before { background: var(--amber); }
+  .card.accent-red::before { background: var(--red); }
+  .card.accent-green::before { background: var(--green); }
+  .card.accent-blue::before { background: var(--blue); }
+  .card.accent-purple::before { background: var(--purple); }
+  .card.accent-teal::before { background: var(--teal); }
+
+  .card-title {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .card-title::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  .chart-wrap { position: relative; }
+
+  /* ── SCATTER / POSITIONING ── */
+  canvas { display: block; }
+
+  /* ── HEATMAP TABLE ── */
+  .heatmap-wrap { overflow-x: auto; }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: var(--font-mono);
+    font-size: 11px;
+  }
+  th {
+    padding: 8px 10px;
+    text-align: right;
+    color: var(--muted);
+    font-weight: 400;
+    font-size: 10px;
+    letter-spacing: 0.05em;
+    border-bottom: 1px solid var(--border2);
+    white-space: nowrap;
+  }
+  th:first-child { text-align: left; }
+  td {
+    padding: 6px 10px;
+    text-align: right;
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+  }
+  td:first-child {
+    text-align: left;
+    font-weight: 500;
+    color: var(--text);
+    font-size: 11px;
+  }
+  tr:hover td { background: rgba(255,255,255,0.02); }
+
+  .heatmap-cell {
+    display: inline-block;
+    padding: 2px 6px;
+    font-size: 10.5px;
+    min-width: 58px;
+    text-align: center;
+  }
+
+  /* ── RANKING BAR ── */
+  .rank-list { display: flex; flex-direction: column; gap: 6px; }
+  .rank-row {
+    display: grid;
+    grid-template-columns: 140px 1fr 64px;
+    align-items: center;
+    gap: 10px;
+  }
+  .rank-label {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .rank-bar-bg {
+    background: var(--border);
+    height: 10px;
+    position: relative;
+    overflow: visible;
+  }
+  .rank-bar-fill {
+    position: absolute;
+    top: 0; left: 0;
+    height: 100%;
+    transition: width 0.6s ease;
+  }
+  .rank-val {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    text-align: right;
+  }
+
+  /* ── SPIDER / RADAR LEGEND ── */
+  .legend { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 14px; }
+  .legend-item { display: flex; align-items: center; gap: 5px; font-family: var(--font-mono); font-size: 10px; color: var(--muted); }
+  .legend-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+
+  /* ── KPI STRIP ── */
+  .kpi-strip {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 1px;
+    background: var(--border);
+    border: 1px solid var(--border);
+    margin-bottom: 20px;
+  }
+  .kpi {
+    background: var(--surface);
+    padding: 14px 16px;
+    text-align: center;
+  }
+  .kpi-label {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 4px;
+  }
+  .kpi-value {
+    font-family: var(--font-mono);
+    font-size: 20px;
+    font-weight: 600;
+    line-height: 1;
+  }
+  .kpi-sub { font-size: 10px; color: var(--muted); margin-top: 3px; font-family: var(--font-mono); }
+  .pos { color: var(--green); }
+  .neg { color: var(--red); }
+  .neu { color: var(--amber); }
+
+  /* ── QUADRANT LABEL ── */
+  .quadrant-note {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    color: var(--muted);
+    position: absolute;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+
+  /* ── FOOTNOTE ── */
+  .footnote {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--dim);
+    margin-top: 8px;
+    letter-spacing: 0.02em;
+  }
+
+  .divider {
+    height: 1px;
+    background: var(--border);
+    margin: 20px 0;
+  }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 4px; height: 4px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--border2); }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-left">
+    <h1>ASSET CLASSES DURING <span>BEAR MARKETS</span></h1>
+    <div class="header-sub">S&amp;P 500 Drawdown &gt;20% · Cross-Asset Performance Analysis · 18 Asset Classes</div>
+  </div>
+  <div class="header-tags">
+    <div class="tag active">Bear Regime</div>
+    <div class="tag">Monthly Data</div>
+    <div class="tag">Factor-Adjusted</div>
+  </div>
+</header>
+
+<nav>
+  <div class="tab active" onclick="showSection('overview')">Overview</div>
+  <div class="tab" onclick="showSection('protection')">Bear Protection</div>
+  <div class="tab" onclick="showSection('risk')">Risk &amp; Volatility</div>
+  <div class="tab" onclick="showSection('correlation')">Correlation</div>
+  <div class="tab" onclick="showSection('heatmap')">Full Metrics</div>
+  <div class="tab" onclick="showSection('periods')">Per-Period Returns</div>
+  <div class="tab" onclick="showSection('assetmap')">Asset Map</div>
+</nav>
+
+<div class="main">
+
+<!-- ═══════════════ OVERVIEW ═══════════════ -->
+<div id="overview" class="section active">
+
+  <div class="kpi-strip">
+    <div class="kpi">
+      <div class="kpi-label">Best Bear Avg Return</div>
+      <div class="kpi-value pos">+0.72%</div>
+      <div class="kpi-sub">Managed Futures</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">Worst Bear Avg Return</div>
+      <div class="kpi-value neg">−9.41%</div>
+      <div class="kpi-sub">Bitcoin</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">Highest Crisis Alpha</div>
+      <div class="kpi-value pos">+0.86%</div>
+      <div class="kpi-sub">TIPS</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">Fastest Recovery</div>
+      <div class="kpi-value neu">8.4 mo</div>
+      <div class="kpi-sub">CHF/USD</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">Best Bear Sharpe</div>
+      <div class="kpi-value pos">+0.81</div>
+      <div class="kpi-sub">Managed Futures</div>
+    </div>
+  </div>
+
+  <div class="grid-2">
+    <div class="card accent-amber">
+      <div class="card-title">Bear vs Bull Monthly Return by Asset</div>
+      <div class="chart-wrap"><canvas id="bearBullBar" height="320"></canvas></div>
+      <p class="footnote">▲ Bull avg monthly return &nbsp;|&nbsp; ▼ Bear avg monthly return. Assets sorted by bear performance.</p>
+    </div>
+    <div class="card accent-blue">
+      <div class="card-title">Bear Market Sharpe Ratio (Annualised)</div>
+      <div class="chart-wrap"><canvas id="bearSharpe" height="320"></canvas></div>
+      <p class="footnote">Ann. Sharpe = Bear Avg Return / Bear Vol × √12. Positive = alpha during downturns.</p>
+    </div>
+  </div>
+
+  <div class="grid-2">
+    <div class="card accent-green">
+      <div class="card-title">Crisis Consistency Score</div>
+      <div class="chart-wrap"><canvas id="consistencyBar" height="260"></canvas></div>
+      <p class="footnote">Fraction of bear months with positive returns. 1.0 = always positive during drawdowns.</p>
+    </div>
+    <div class="card accent-purple">
+      <div class="card-title">Bear Excess Return (vs S&amp;P 500)</div>
+      <div class="chart-wrap"><canvas id="excessReturn" height="260"></canvas></div>
+      <p class="footnote">Bear Avg Return minus S&P Bear Avg Return (−1.91%). Positive = outperformed during bear.</p>
+    </div>
+  </div>
+
+</div>
+
+<!-- ═══════════════ PROTECTION ═══════════════ -->
+<div id="protection" class="section">
+
+  <div class="grid-2">
+    <div class="card accent-teal">
+      <div class="card-title">Downside vs Upside Capture Ratio</div>
+      <div style="position:relative; height:360px;">
+        <canvas id="captureScatter" style="position:absolute;top:0;left:0;width:100%;height:100%;"></canvas>
+      </div>
+      <p class="footnote">Bottom-left = best protection (low downside, may sacrifice upside). Dashed lines = S&amp;P (1,1).</p>
+    </div>
+    <div class="card accent-red">
+      <div class="card-title">Average Bear Market Max Drawdown</div>
+      <div class="chart-wrap"><canvas id="mddBar" height="360"></canvas></div>
+      <p class="footnote">Average S&P-aligned MDD across all bear episodes. Less negative = better capital preservation.</p>
+    </div>
+  </div>
+
+  <div class="grid-2">
+    <div class="card accent-amber">
+      <div class="card-title">Time to Recover from Bear (Months)</div>
+      <div class="chart-wrap"><canvas id="recoveryBar" height="280"></canvas></div>
+      <p class="footnote">Avg months to recover peak value after bear market ends. Fewer = faster recovery.</p>
+    </div>
+    <div class="card accent-blue">
+      <div class="card-title">Drawdown Convexity</div>
+      <div class="chart-wrap"><canvas id="convexBar" height="280"></canvas></div>
+      <p class="footnote">Negative = convex (losses accelerate in deep bears). Positive = concave (resilient in severe stress).</p>
+    </div>
+  </div>
+
+</div>
+
+<!-- ═══════════════ RISK ═══════════════ -->
+<div id="risk" class="section">
+
+  <div class="grid-2">
+    <div class="card accent-amber">
+      <div class="card-title">Bear vs Bull Volatility</div>
+      <div class="chart-wrap"><canvas id="volBar" height="320"></canvas></div>
+      <p class="footnote">Vol spike = bear vol / bull vol ratio. Assets showing large spikes are regime-sensitive.</p>
+    </div>
+    <div class="card accent-red">
+      <div class="card-title">Return / Risk Scatter — Bear Regime</div>
+      <div style="position:relative; height:340px;">
+        <canvas id="riskReturnScatter" style="position:absolute;top:0;left:0;width:100%;height:100%;"></canvas>
+      </div>
+      <p class="footnote">Top-left quadrant = low vol, positive return in bear markets (ideal defensive assets).</p>
+    </div>
+  </div>
+
+  <div class="grid-2">
+    <div class="card accent-green">
+      <div class="card-title">Tail Beta (10th Pct S&amp;P Month)</div>
+      <div class="chart-wrap"><canvas id="tailBetaBar" height="280"></canvas></div>
+      <p class="footnote">Sensitivity during worst S&P months. Negative/zero = tail protection.</p>
+    </div>
+    <div class="card accent-purple">
+      <div class="card-title">Bear Skewness</div>
+      <div class="chart-wrap"><canvas id="skewnessBar" height="280"></canvas></div>
+      <p class="footnote">Positive skew = rare large gains, frequent small losses. Desirable in bear protection.</p>
+    </div>
+  </div>
+
+</div>
+
+<!-- ═══════════════ CORRELATION ═══════════════ -->
+<div id="correlation" class="section">
+
+  <div class="grid-2">
+    <div class="card accent-teal">
+      <div class="card-title">Bear vs Bull Correlation to S&amp;P 500</div>
+      <div class="chart-wrap"><canvas id="corrCompare" height="360"></canvas></div>
+      <p class="footnote">Assets with low/negative bear correlation provide diversification when it matters most.</p>
+    </div>
+    <div class="card accent-amber">
+      <div class="card-title">Correlation Regime Shift (Bear − Bull)</div>
+      <div class="chart-wrap"><canvas id="corrShift" height="360"></canvas></div>
+      <p class="footnote">Negative shift = correlation drops in bear markets (desirable). Positive = correlation increases (correlation risk).</p>
+    </div>
+  </div>
+
+  <div class="card accent-blue grid-full">
+    <div class="card-title">Crisis Alpha vs Bear Correlation — Quadrant Analysis</div>
+    <div style="position:relative; height:380px;">
+      <canvas id="alphaCorr" style="position:absolute;top:0;left:0;width:100%;height:100%;"></canvas>
+    </div>
+    <p class="footnote">Top-left = highest value: positive crisis alpha + negative/zero bear correlation. The "true diversifier" quadrant.</p>
+  </div>
+
+</div>
+
+<!-- ═══════════════ HEATMAP ═══════════════ -->
+<div id="heatmap" class="section">
+  <div class="card">
+    <div class="card-title">Full Metrics Heatmap — All Asset Classes</div>
+    <div class="heatmap-wrap">
+      <table id="heatmapTable"></table>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════ PER-PERIOD RETURNS ═══════════════ -->
+<div id="periods" class="section">
+
+  <div class="card accent-red grid-full" style="margin-bottom:20px;">
+    <div class="card-title">Bear Market Total Returns — Per Episode</div>
+    <div style="display:flex;align-items:center;gap:20px;margin-bottom:14px;flex-wrap:wrap;">
+      <p class="footnote" style="margin:0;">Total return per asset across each bear market episode. Colour intensity = magnitude relative to each asset's own range.</p>
+      <div style="display:flex;align-items:center;gap:6px;flex-shrink:0;">
+        <div style="width:80px;height:12px;border-radius:2px;background:linear-gradient(to right,rgb(230,20,20),rgb(60,30,30),rgb(30,220,60));"></div>
+        <span style="font-family:var(--font-mono);font-size:9px;color:#6b7280;">Worst → Best</span>
+      </div>
+    </div>
+    <div class="heatmap-wrap">
+      <table id="bearPeriodTable"></table>
+    </div>
+  </div>
+
+  <div class="card accent-blue grid-full">
+    <div class="card-title">Bull Market Total Returns — Per Episode</div>
+    <div style="display:flex;align-items:center;gap:20px;margin-bottom:14px;flex-wrap:wrap;">
+      <p class="footnote" style="margin:0;">Total return per asset across each bull market episode. · = data unavailable (pre-inception).</p>
+      <div style="display:flex;align-items:center;gap:6px;flex-shrink:0;">
+        <div style="width:80px;height:12px;border-radius:2px;background:linear-gradient(to right,rgb(230,20,20),rgb(60,30,30),rgb(30,220,60));"></div>
+        <span style="font-family:var(--font-mono);font-size:9px;color:#6b7280;">Worst → Best</span>
+      </div>
+    </div>
+    <div class="heatmap-wrap">
+      <table id="bullPeriodTable"></table>
+    </div>
+  </div>
+
+</div>
+
+<!-- ═══════════════ ASSET MAP ═══════════════ -->
+<div id="assetmap" class="section">
+
+  <div class="card accent-teal grid-full">
+    <div class="card-title">Bear Market Asset Map — Protection vs Directionality</div>
+    <div style="position:relative; height:580px;">
+      <canvas id="assetMapCanvas" style="position:absolute;top:0;left:0;width:100%;height:100%;"></canvas>
+    </div>
+    <p class="footnote">
+      <span style="color:#00ff00">■ Best Hedges</span> — negative corr + positive return &nbsp;|&nbsp;
+      <span style="color:#ffd700">■ Crisis Alpha</span> — positive corr + positive return &nbsp;|&nbsp;
+      <span style="color:#4a9eff">■ Diversifiers</span> — negative corr + negative return &nbsp;|&nbsp;
+      <span style="color:#e84040">■ Losers</span> — positive corr + negative return
+    </p>
+  </div>
+
+</div>
+
+</div><!-- end main -->
+
+<script>
+// ── DATA ──────────────────────────────────────────────────────────────
+const assets = [
+  { name: 'S&P 500',           avgRet: 0.007472,  bearRet: -0.019125, bullRet: 0.012617,  bearVol: 0.059643,  bullVol: 0.040166,  bearExcess: 0.000000,  downCapt: 1.000000, upCapt: 1.000000, mdd: -0.256925, bearCorr: 1.000000,  bullCorr: 1.000000,  bearSkew: 0.085130,  tailBeta: 1.000000,  crisisAlpha: 0.000000,  recovery: 36.00, consistency: 0.000000,  bearSharpe: -1.110822, timingLag: 0.0,  convexity: -1.91e-15 },
+  { name: 'US Real Estate',    avgRet: 0.008282,  bearRet: -0.018873, bullRet: 0.011592,  bearVol: 0.078428,  bullVol: 0.053558,  bearExcess: 0.004784,  downCapt: 0.797786, upCapt: 1.058281, mdd: -0.198553, bearCorr: 0.687920,  bullCorr: 0.673691,  bearSkew: -1.150237, tailBeta: 2.065970,  crisisAlpha: 0.002674,  recovery: 20.40, consistency: 0.166667,  bearSharpe: -0.833598, timingLag: 0.0,  convexity: -5.268 },
+  { name: 'TIPS',              avgRet: 0.003072,  bearRet: 0.001078,  bullRet: 0.004027,  bearVol: 0.028909,  bullVol: 0.014153,  bearExcess: 0.029889,  downCapt: -0.037419, upCapt: 0.353612, mdd: -0.052329, bearCorr: 0.559721,  bullCorr: 0.176150,  bearSkew: -0.362384, tailBeta: 0.612325,  crisisAlpha: 0.008552,  recovery: 15.50, consistency: 0.400000,  bearSharpe: 0.129185,  timingLag: 0.0,  convexity: -1.192 },
+  { name: 'USD Index',         avgRet: -0.000002, bearRet: 0.002491,  bullRet: -0.000699, bearVol: 0.027929,  bullVol: 0.023168,  bearExcess: 0.021617,  downCapt: -0.130264, upCapt: -0.055880, mdd: -0.053619, bearCorr: -0.181061, bullCorr: -0.154713, bearSkew: -0.046144, tailBeta: -0.046430, crisisAlpha: 0.000870,  recovery: 21.57, consistency: 0.700000,  bearSharpe: 0.309004,  timingLag: 0.0,  convexity: -0.175 },
+  { name: 'CHF/USD',           avgRet: -0.002074, bearRet: -0.002707, bullRet: -0.002161, bearVol: 0.038295,  bullVol: 0.031664,  bearExcess: 0.016418,  downCapt: 0.141541,  upCapt: -0.171775, mdd: -0.099095, bearCorr: -0.065115, bullCorr: -0.058608, bearSkew: -0.197322, tailBeta: 0.074626,  crisisAlpha: -0.003507, recovery: 8.43,  consistency: 0.400000,  bearSharpe: -0.244875, timingLag: 1.0,  convexity: -0.476 },
+  { name: 'JPY/USD',           avgRet: -0.000774, bearRet: 0.000427,  bullRet: -0.001488, bearVol: 0.035622,  bullVol: 0.029723,  bearExcess: 0.019553,  downCapt: -0.022332, upCapt: -0.118300, mdd: -0.080316, bearCorr: -0.006139, bullCorr: 0.029855,  bearSkew: -0.339794, tailBeta: 0.149097,  crisisAlpha: 0.000357,  recovery: 87.56, consistency: 0.400000,  bearSharpe: 0.041535,  timingLag: 2.0,  convexity: -0.763 },
+  { name: 'Bitcoin',           avgRet: 0.057915,  bearRet: -0.094078, bullRet: 0.065494,  bearVol: 0.157086,  bullVol: 0.207626,  bearExcess: -0.060759, downCapt: 2.823528, upCapt: 5.437307, mdd: -0.322321, bearCorr: 0.483523,  bullCorr: 0.302043,  bearSkew: -0.196777, tailBeta: 2.606703,  crisisAlpha: -0.055198, recovery: 15.50, consistency: 0.000000,  bearSharpe: -2.074626, timingLag: 0.0,  convexity: 7.092 },
+  { name: 'Treasury 30Y',      avgRet: 0.000940,  bearRet: 0.001532,  bullRet: 0.001941,  bearVol: 0.071721,  bullVol: 0.051826,  bearExcess: 0.020587,  downCapt: -0.080409, upCapt: 0.156746, mdd: -0.151686, bearCorr: 0.015631,  bullCorr: 0.140077,  bearSkew: 0.561136,  tailBeta: -0.536383, crisisAlpha: 0.001887,  recovery: 25.86, consistency: 0.555556,  bearSharpe: 0.074006,  timingLag: 0.0,  convexity: 2.172 },
+  { name: 'Treasury 1Y',       avgRet: 0.000072,  bearRet: 0.000470,  bullRet: 0.000023,  bearVol: 0.006556,  bullVol: 0.004157,  bearExcess: 0.019596,  downCapt: -0.024584, upCapt: 0.001796, mdd: -0.012631, bearCorr: -0.035621, bullCorr: 0.158993,  bearSkew: 0.456484,  tailBeta: -0.052016, crisisAlpha: 0.000395,  recovery: 11.50, consistency: 0.700000,  bearSharpe: 0.248439,  timingLag: -1.0, convexity: 0.202 },
+  { name: 'Corp Bond',         avgRet: 0.000557,  bearRet: -0.004787, bullRet: 0.001898,  bearVol: 0.030595,  bullVol: 0.019241,  bearExcess: 0.016643,  downCapt: 0.223373,  upCapt: 0.157790, mdd: -0.099643, bearCorr: 0.304484,  bullCorr: 0.252961,  bearSkew: -1.136116, tailBeta: 0.600228,  crisisAlpha: -0.001433, recovery: 10.00, consistency: 0.166667,  bearSharpe: -0.541982, timingLag: 0.0,  convexity: -2.500 },
+  { name: 'Gold',              avgRet: 0.006965,  bearRet: 0.002395,  bullRet: 0.008699,  bearVol: 0.058795,  bullVol: 0.053861,  bearExcess: 0.021451,  downCapt: -0.125702, upCapt: 0.701662, mdd: -0.124022, bearCorr: 0.033798,  bullCorr: -0.010496, bearSkew: 0.184592,  tailBeta: 0.466075,  crisisAlpha: 0.003024,  recovery: 90.40, consistency: 0.333333,  bearSharpe: 0.141128,  timingLag: -1.0, convexity: 0.445 },
+  { name: 'Oil',               avgRet: 0.007548,  bearRet: -0.008169, bullRet: 0.007911,  bearVol: 0.137275,  bullVol: 0.104328,  bearExcess: 0.015503,  downCapt: 0.345109,  upCapt: 0.645740, mdd: -0.265791, bearCorr: 0.229767,  bullCorr: 0.104787,  bearSkew: -0.273014, tailBeta: 1.321312,  crisisAlpha: 0.003785,  recovery: 52.75, consistency: 0.500000,  bearSharpe: -0.206154, timingLag: 0.0,  convexity: -2.286 },
+  { name: 'GSCI',              avgRet: 0.005179,  bearRet: -0.010492, bullRet: 0.005768,  bearVol: 0.084440,  bullVol: 0.057783,  bearExcess: 0.010937,  downCapt: 0.489622,  upCapt: 0.486251, mdd: -0.263677, bearCorr: 0.402886,  bullCorr: 0.283642,  bearSkew: -0.740750, tailBeta: 1.751450,  crisisAlpha: 0.001757,  recovery: 63.67, consistency: 0.666667,  bearSharpe: -0.430445, timingLag: 0.0,  convexity: -4.851 },
+  { name: 'Managed Futures',   avgRet: 0.004389,  bearRet: 0.007158,  bullRet: 0.003200,  bearVol: 0.030435,  bullVol: 0.024847,  bearExcess: 0.028587,  downCapt: -0.334009, upCapt: 0.288344, mdd: -0.044230, bearCorr: -0.378647, bullCorr: 0.009006,  bearSkew: 0.271708,  tailBeta: -0.155430, crisisAlpha: 0.003008,  recovery: 12.80, consistency: 0.500000,  bearSharpe: 0.814686,  timingLag: 0.0,  convexity: -0.872 },
+  { name: 'Quality (FF)',      avgRet: 0.010515,  bearRet: -0.014401, bullRet: 0.015860,  bearVol: 0.060791,  bullVol: 0.043142,  bearExcess: 0.004725,  downCapt: 0.752967,  upCapt: 1.247191, mdd: -0.234784, bearCorr: 0.941040,  bullCorr: 0.940371,  bearSkew: -0.186979, tailBeta: 1.047382,  crisisAlpha: 0.003943,  recovery: 25.56, consistency: 0.000000,  bearSharpe: -0.820615, timingLag: 0.0,  convexity: -5.228 },
+  { name: 'Low Vol (FF)',      avgRet: 0.008721,  bearRet: -0.004538, bullRet: 0.012017,  bearVol: 0.043387,  bullVol: 0.032295,  bearExcess: 0.014587,  downCapt: 0.237281,  upCapt: 0.944960, mdd: -0.143874, bearCorr: 0.807175,  bullCorr: 0.809243,  bearSkew: -0.205650, tailBeta: 0.781852,  crisisAlpha: 0.006692,  recovery: 17.89, consistency: 0.400000,  bearSharpe: -0.362330, timingLag: 0.0,  convexity: -5.989 },
+  { name: 'Value (FF)',        avgRet: 0.013341,  bearRet: -0.017209, bullRet: 0.016870,  bearVol: 0.082328,  bullVol: 0.062276,  bearExcess: 0.001917,  downCapt: 0.899784,  upCapt: 1.326609, mdd: -0.249008, bearCorr: 0.821445,  bullCorr: 0.785880,  bearSkew: -0.874164, tailBeta: 1.473094,  crisisAlpha: 0.004477,  recovery: 24.89, consistency: 0.100000,  bearSharpe: -0.724087, timingLag: 0.0,  convexity: -2.037 },
+  { name: 'Small Cap (FF)',    avgRet: 0.013571,  bearRet: -0.024887, bullRet: 0.015305,  bearVol: 0.075199,  bullVol: 0.059320,  bearExcess: -0.005761, downCapt: 1.301227, upCapt: 1.203543, mdd: -0.271704, bearCorr: 0.752959,  bullCorr: 0.670680,  bearSkew: -0.243155, tailBeta: 1.557797,  crisisAlpha: -0.006730, recovery: 30.11, consistency: 0.000000,  bearSharpe: -1.146414, timingLag: 0.0,  convexity: -2.595 },
+];
+
+// Sort helpers
+const sortBy = (arr, key, asc=true) => [...arr].sort((a,b) => asc ? a[key]-b[key] : b[key]-a[key]);
+
+// Color helpers
+const palette = [
+  '#f5a623','#4a9eff','#2ecc71','#e84040','#9b6dff','#00d4b4',
+  '#ff6b6b','#ffd93d','#6bcb77','#4d96ff','#c77dff','#f72585',
+  '#7209b7','#3a86ff','#06ffa5','#ffb703','#fb8500','#8338ec'
+];
+
+function heatColor(val, min, max, reverse=false) {
+  let t = (val - min) / (max - min);
+  if (reverse) t = 1 - t;
+  t = Math.max(0, Math.min(1, t));
+  if (t < 0.5) {
+    const r = Math.round(232 + (17-232)*t*2);
+    const g = Math.round(64 + (185-64)*t*2);
+    const b = Math.round(64 + (64-64)*t*2);
+    return `rgb(${r},${g},${b})`;
+  } else {
+    const t2 = (t-0.5)*2;
+    const r = Math.round(17 + (46-17)*t2);
+    const g = Math.round(185 + (204-185)*t2);
+    const b = Math.round(64 + (113-64)*t2);
+    return `rgb(${r},${g},${b})`;
+  }
+}
+
+function pct(v,d=2){ return (v*100).toFixed(d)+'%'; }
+function f2(v){ return v.toFixed(2); }
+
+// ── CHART DEFAULTS ──
+Chart.defaults.color = '#6b7280';
+Chart.defaults.borderColor = '#222530';
+Chart.defaults.font.family = "'IBM Plex Mono', monospace";
+Chart.defaults.font.size = 10;
+
+const gridOpts = {
+  color: 'rgba(34,37,48,0.8)',
+  tickColor: 'transparent'
+};
+
+// ── CHART 1: Bear vs Bull Bar ──────────────────────────────────────
+(function(){
+  const sorted = sortBy(assets, 'bearRet');
+  const labels = sorted.map(a => a.name.replace(' (FF)',''));
+  const bearData = sorted.map(a => +(a.bearRet*100).toFixed(3));
+  const bullData = sorted.map(a => +(a.bullRet*100).toFixed(3));
+  new Chart(document.getElementById('bearBullBar'), {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [
+        { label: 'Bear Avg Monthly Return (%)', data: bearData, backgroundColor: sorted.map(a => a.bearRet >= 0 ? 'rgba(46,204,113,0.85)' : 'rgba(232,64,64,0.75)'), borderWidth: 0, borderRadius: 2 },
+        { label: 'Bull Avg Monthly Return (%)', data: bullData, backgroundColor: 'rgba(74,158,255,0.35)', borderColor: 'rgba(74,158,255,0.6)', borderWidth: 1, borderRadius: 2 }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { labels: { boxWidth: 10, font: { size: 9 } } }, tooltip: { callbacks: { label: ctx => ` ${ctx.dataset.label}: ${ctx.parsed.y.toFixed(2)}%` } } },
+      scales: {
+        x: { grid: gridOpts, ticks: { maxRotation: 45, font: { size: 9 } } },
+        y: { grid: gridOpts, ticks: { callback: v => v+'%' } }
+      }
+    }
+  });
+})();
+
+// ── CHART 2: Bear Sharpe ──────────────────────────────────────────
+(function(){
+  const sorted = sortBy(assets, 'bearSharpe');
+  const labels = sorted.map(a => a.name.replace(' (FF)',''));
+  const data = sorted.map(a => +a.bearSharpe.toFixed(3));
+  new Chart(document.getElementById('bearSharpe'), {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{ label: 'Bear Market Sharpe (Ann)', data, backgroundColor: data.map(v => v>=0?'rgba(46,204,113,0.85)':'rgba(232,64,64,0.75)'), borderWidth: 0, borderRadius: 2 }]
+    },
+    options: {
+      indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { grid: gridOpts, ticks: { callback: v => v.toFixed(1) } },
+        y: { grid: { display: false }, ticks: { font: { size: 9 } } }
+      }
+    }
+  });
+})();
+
+// ── CHART 3: Crisis Consistency ──────────────────────────────────
+(function(){
+  const sorted = sortBy(assets, 'consistency', false);
+  const labels = sorted.map(a => a.name.replace(' (FF)',''));
+  const data = sorted.map(a => +(a.consistency*100).toFixed(1));
+  new Chart(document.getElementById('consistencyBar'), {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{ label: 'Crisis Consistency (%)', data, backgroundColor: data.map(v => { const t=v/100; return `rgba(${Math.round(46+200*(1-t))},${Math.round(204*t+64*(1-t))},${Math.round(113*t+64*(1-t))},0.85)`; }), borderWidth: 0, borderRadius: 2 }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { grid: gridOpts, ticks: { maxRotation: 45, font: { size: 9 } } },
+        y: { grid: gridOpts, ticks: { callback: v => v+'%' }, max: 100 }
+      }
+    }
+  });
+})();
+
+// ── CHART 4: Bear Excess Return ───────────────────────────────────
+(function(){
+  const sorted = sortBy(assets, 'bearExcess', false);
+  const labels = sorted.map(a => a.name.replace(' (FF)',''));
+  const data = sorted.map(a => +(a.bearExcess*100).toFixed(3));
+  new Chart(document.getElementById('excessReturn'), {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{ data, backgroundColor: data.map(v => v>=0?'rgba(155,109,255,0.85)':'rgba(232,64,64,0.7)'), borderWidth: 0, borderRadius: 2 }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => ` Bear Excess: ${ctx.parsed.y.toFixed(2)}%` } } },
+      scales: {
+        x: { grid: gridOpts, ticks: { maxRotation: 45, font: { size: 9 } } },
+        y: { grid: gridOpts, ticks: { callback: v => v+'%' } }
+      }
+    }
+  });
+})();
+
+// ── CHART 5: Capture Scatter ──────────────────────────────────────
+(function(){
+  const exclude = 'S&P 500';
+  const data = assets.filter(a=>a.name!==exclude).map((a,i) => ({
+    x: a.downCapt, y: a.upCapt, label: a.name.replace(' (FF)',''), color: palette[i]
+  }));
+  new Chart(document.getElementById('captureScatter'), {
+    type: 'scatter',
+    data: {
+      datasets: data.map(d => ({
+        label: d.label, data: [{x:d.x, y:d.y}],
+        backgroundColor: d.color+'cc', borderColor: d.color,
+        borderWidth: 1, pointRadius: 7, pointHoverRadius: 9
+      }))
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: ctx => `${ctx.dataset.label} | Down: ${ctx.parsed.x.toFixed(2)} Up: ${ctx.parsed.y.toFixed(2)}` } },
+        annotation: {}
+      },
+      scales: {
+        x: { grid: gridOpts, title: { display:true, text:'Downside Capture', color:'#6b7280', font:{size:10} } },
+        y: { grid: gridOpts, title: { display:true, text:'Upside Capture', color:'#6b7280', font:{size:10} } }
+      }
+    },
+    plugins: [{
+      id: 'crosshairs',
+      afterDraw(chart) {
+        const {ctx, chartArea, scales} = chart;
+        const x1 = scales.x.getPixelForValue(1);
+        const y1 = scales.y.getPixelForValue(1);
+        ctx.save();
+        ctx.strokeStyle = 'rgba(245,166,35,0.3)';
+        ctx.setLineDash([4,4]);
+        ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(x1, chartArea.top); ctx.lineTo(x1, chartArea.bottom); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(chartArea.left, y1); ctx.lineTo(chartArea.right, y1); ctx.stroke();
+        ctx.restore();
+        // Labels
+        data.forEach(d => {
+          const px = scales.x.getPixelForValue(d.x);
+          const py = scales.y.getPixelForValue(d.y);
+          ctx.save();
+          ctx.fillStyle = d.color;
+          ctx.font = "9px 'IBM Plex Mono'";
+          ctx.fillText(d.label.substring(0,12), px+7, py-5);
+          ctx.restore();
+        });
+      }
+    }]
+  });
+})();
+
+// ── CHART 6: MDD Bar ─────────────────────────────────────────────
+(function(){
+  const sorted = sortBy(assets, 'mdd', false);
+  const labels = sorted.map(a => a.name.replace(' (FF)',''));
+  const data = sorted.map(a => +(a.mdd*100).toFixed(2));
+  new Chart(document.getElementById('mddBar'), {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{ data, backgroundColor: 'rgba(232,64,64,0.75)', borderWidth: 0, borderRadius: 2 }]
+    },
+    options: {
+      indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => ` MDD: ${ctx.parsed.x.toFixed(1)}%` } } },
+      scales: {
+        x: { grid: gridOpts, ticks: { callback: v => v+'%' } },
+        y: { grid: { display: false }, ticks: { font: { size: 9 } } }
+      }
+    }
+  });
+})();
+
+// ── CHART 7: Recovery ─────────────────────────────────────────────
+(function(){
+  const filtered = assets.filter(a => a.recovery < 200);
+  const sorted = sortBy(filtered, 'recovery');
+  const labels = sorted.map(a => a.name.replace(' (FF)',''));
+  const data = sorted.map(a => +a.recovery.toFixed(1));
+  new Chart(document.getElementById('recoveryBar'), {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{ data, backgroundColor: data.map(v => { const t=Math.min(v/70,1); return `rgba(${Math.round(46+200*t)},${Math.round(204-140*t)},${Math.round(113-49*t)},0.85)`; }), borderWidth: 0, borderRadius: 2 }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => ` Recovery: ${ctx.parsed.y.toFixed(1)} months` } } },
+      scales: {
+        x: { grid: gridOpts, ticks: { maxRotation: 45, font: { size: 9 } } },
+        y: { grid: gridOpts, ticks: { callback: v => v+'mo' } }
+      }
+    }
+  });
+})();
+
+// ── CHART 8: Convexity ────────────────────────────────────────────
+(function(){
+  const sorted = sortBy(assets, 'convexity', false);
+  const labels = sorted.map(a => a.name.replace(' (FF)',''));
+  const data = sorted.map(a => +a.convexity.toFixed(3));
+  new Chart(document.getElementById('convexBar'), {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{ data, backgroundColor: data.map(v => v>=0?'rgba(46,204,113,0.85)':'rgba(232,64,64,0.75)'), borderWidth: 0, borderRadius: 2 }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { grid: gridOpts, ticks: { maxRotation: 45, font: { size: 9 } } },
+        y: { grid: gridOpts }
+      }
+    }
+  });
+})();
+
+// ── CHART 9: Volatility Comparison ───────────────────────────────
+(function(){
+  const sorted = sortBy(assets, 'bearVol', false);
+  const labels = sorted.map(a => a.name.replace(' (FF)',''));
+  new Chart(document.getElementById('volBar'), {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [
+        { label: 'Bear Vol', data: sorted.map(a => +(a.bearVol*100).toFixed(2)), backgroundColor: 'rgba(232,64,64,0.8)', borderWidth: 0, borderRadius: 2 },
+        { label: 'Bull Vol', data: sorted.map(a => +(a.bullVol*100).toFixed(2)), backgroundColor: 'rgba(74,158,255,0.5)', borderWidth: 0, borderRadius: 2 }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { labels: { boxWidth: 10, font: {size:9} } } },
+      scales: {
+        x: { grid: gridOpts, ticks: { maxRotation: 45, font: {size:9} } },
+        y: { grid: gridOpts, ticks: { callback: v => v+'%' } }
+      }
+    }
+  });
+})();
+
+// ── CHART 10: Risk Return Scatter ─────────────────────────────────
+(function(){
+  const data = assets.map((a,i) => ({ x: a.bearVol, y: a.bearRet, label: a.name.replace(' (FF)',''), color: palette[i] }));
+  new Chart(document.getElementById('riskReturnScatter'), {
+    type: 'scatter',
+    data: {
+      datasets: data.map(d => ({
+        label: d.label, data: [{x:d.x,y:d.y}],
+        backgroundColor: d.color+'cc', borderColor: d.color, borderWidth:1, pointRadius:7, pointHoverRadius:9
+      }))
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: ctx => `${ctx.dataset.label} | Vol: ${(ctx.parsed.x*100).toFixed(1)}% Ret: ${(ctx.parsed.y*100).toFixed(2)}%` } }
+      },
+      scales: {
+        x: { grid: gridOpts, ticks: { callback: v => (v*100).toFixed(0)+'%' }, title: { display:true, text:'Bear Monthly Vol', color:'#6b7280', font:{size:10} } },
+        y: { grid: gridOpts, ticks: { callback: v => (v*100).toFixed(1)+'%' }, title: { display:true, text:'Bear Monthly Return', color:'#6b7280', font:{size:10} } }
+      }
+    },
+    plugins: [{
+      id: 'rrlabels',
+      afterDraw(chart) {
+        const {ctx, scales} = chart;
+        data.forEach(d => {
+          const px = scales.x.getPixelForValue(d.x);
+          const py = scales.y.getPixelForValue(d.y);
+          ctx.save();
+          ctx.fillStyle = d.color;
+          ctx.font = "9px 'IBM Plex Mono'";
+          ctx.fillText(d.label.substring(0,11), px+6, py-4);
+          ctx.restore();
+        });
+        // zero line label
+        const y0 = scales.y.getPixelForValue(0);
+        ctx.save();
+        ctx.strokeStyle = 'rgba(245,166,35,0.25)';
+        ctx.setLineDash([3,3]);
+        ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(chart.chartArea.left, y0); ctx.lineTo(chart.chartArea.right, y0); ctx.stroke();
+        ctx.restore();
+      }
+    }]
+  });
+})();
+
+// ── CHART 11: Tail Beta ───────────────────────────────────────────
+(function(){
+  const sorted = sortBy(assets, 'tailBeta');
+  const labels = sorted.map(a => a.name.replace(' (FF)',''));
+  const data = sorted.map(a => +a.tailBeta.toFixed(3));
+  new Chart(document.getElementById('tailBetaBar'), {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{ data, backgroundColor: data.map(v => v<=0?'rgba(46,204,113,0.85)':'rgba(232,64,64,0.75)'), borderWidth: 0, borderRadius: 2 }]
+    },
+    options: {
+      indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { grid: gridOpts },
+        y: { grid: { display: false }, ticks: { font: {size:9} } }
+      }
+    }
+  });
+})();
+
+// ── CHART 12: Skewness ────────────────────────────────────────────
+(function(){
+  const sorted = sortBy(assets, 'bearSkew', false);
+  const labels = sorted.map(a => a.name.replace(' (FF)',''));
+  const data = sorted.map(a => +a.bearSkew.toFixed(3));
+  new Chart(document.getElementById('skewnessBar'), {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{ data, backgroundColor: data.map(v => v>=0?'rgba(46,204,113,0.85)':'rgba(232,64,64,0.7)'), borderWidth: 0, borderRadius: 2 }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { grid: gridOpts, ticks: { maxRotation: 45, font: {size:9} } },
+        y: { grid: gridOpts }
+      }
+    }
+  });
+})();
+
+// ── CHART 13: Correlation Compare ────────────────────────────────
+(function(){
+  const sorted = sortBy(assets, 'bearCorr');
+  const labels = sorted.map(a => a.name.replace(' (FF)',''));
+  new Chart(document.getElementById('corrCompare'), {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [
+        { label: 'Bear Correlation', data: sorted.map(a => +a.bearCorr.toFixed(3)), backgroundColor: sorted.map(a => a.bearCorr<0?'rgba(46,204,113,0.85)':'rgba(232,64,64,0.7)'), borderWidth:0, borderRadius:2 },
+        { label: 'Bull Correlation', data: sorted.map(a => +a.bullCorr.toFixed(3)), backgroundColor: 'rgba(74,158,255,0.35)', borderColor:'rgba(74,158,255,0.6)', borderWidth:1, borderRadius:2 }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { labels: { boxWidth:10, font:{size:9} } } },
+      scales: {
+        x: { grid: gridOpts, ticks: { maxRotation: 45, font:{size:9} } },
+        y: { grid: gridOpts, min: -1, max: 1 }
+      }
+    }
+  });
+})();
+
+// ── CHART 14: Correlation Shift ───────────────────────────────────
+(function(){
+  const sorted = sortBy(assets.filter(a=>a.name!=='S&P 500'), 'bearCorr');
+  const labels = sorted.map(a => a.name.replace(' (FF)',''));
+  const shift = sorted.map(a => +((a.bearCorr - a.bullCorr)).toFixed(3));
+  new Chart(document.getElementById('corrShift'), {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{ label: 'Corr Shift (Bear − Bull)', data: shift, backgroundColor: shift.map(v => v<0?'rgba(46,204,113,0.85)':'rgba(232,64,64,0.75)'), borderWidth:0, borderRadius:2 }]
+    },
+    options: {
+      indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => ` Shift: ${ctx.parsed.x.toFixed(3)}` } } },
+      scales: {
+        x: { grid: gridOpts },
+        y: { grid: { display: false }, ticks: { font:{size:9} } }
+      }
+    }
+  });
+})();
+
+// ── CHART 15: Crisis Alpha vs Bear Corr ──────────────────────────
+(function(){
+  const data = assets.map((a,i) => ({ x: a.bearCorr, y: a.crisisAlpha, label: a.name.replace(' (FF)',''), color: palette[i] }));
+  new Chart(document.getElementById('alphaCorr'), {
+    type: 'scatter',
+    data: {
+      datasets: data.map(d => ({
+        label: d.label, data: [{x:d.x,y:d.y}],
+        backgroundColor: d.color+'cc', borderColor: d.color, borderWidth:1, pointRadius:7, pointHoverRadius:9
+      }))
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: ctx => `${ctx.dataset.label} | Corr: ${ctx.parsed.x.toFixed(3)} Alpha: ${(ctx.parsed.y*100).toFixed(3)}%` } }
+      },
+      scales: {
+        x: { grid: gridOpts, ticks: { callback: v => v.toFixed(2) }, title: { display:true, text:'Bear Correlation to S&P 500', color:'#6b7280', font:{size:10} } },
+        y: { grid: gridOpts, ticks: { callback: v => (v*100).toFixed(2)+'%' }, title: { display:true, text:'Crisis Alpha (Monthly)', color:'#6b7280', font:{size:10} } }
+      }
+    },
+    plugins: [{
+      id: 'quadlabels',
+      afterDraw(chart) {
+        const {ctx, scales} = chart;
+        data.forEach(d => {
+          const px = scales.x.getPixelForValue(d.x);
+          const py = scales.y.getPixelForValue(d.y);
+          ctx.save();
+          ctx.fillStyle = d.color;
+          ctx.font = "9px 'IBM Plex Mono'";
+          ctx.fillText(d.label.substring(0,14), px+6, py-4);
+          ctx.restore();
+        });
+        // Axis lines
+        const x0 = scales.x.getPixelForValue(0);
+        const y0 = scales.y.getPixelForValue(0);
+        ctx.save();
+        ctx.strokeStyle = 'rgba(245,166,35,0.2)';
+        ctx.setLineDash([4,4]);
+        ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(x0, chart.chartArea.top); ctx.lineTo(x0, chart.chartArea.bottom); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(chart.chartArea.left, y0); ctx.lineTo(chart.chartArea.right, y0); ctx.stroke();
+        // Quadrant labels
+        ctx.fillStyle = 'rgba(245,166,35,0.25)';
+        ctx.font = "9px 'IBM Plex Mono'";
+        ctx.fillText('← TRUE DIVERSIFIER', chart.chartArea.left+8, chart.chartArea.top+16);
+        ctx.restore();
+      }
+    }]
+  });
+})();
+
+// ── HEATMAP TABLE ─────────────────────────────────────────────────
+(function(){
+  const cols = [
+    { key: 'bearRet',     label: 'Bear Ret',    fmt: v=>`${(v*100).toFixed(2)}%` },
+    { key: 'bearVol',     label: 'Bear Vol',    fmt: v=>`${(v*100).toFixed(2)}%` },
+    { key: 'bearSharpe',  label: 'Bear Sharpe', fmt: v=>v.toFixed(2) },
+    { key: 'bearExcess',  label: 'Excess Ret',  fmt: v=>`${(v*100).toFixed(2)}%` },
+    { key: 'downCapt',    label: 'Down Capt',   fmt: v=>v.toFixed(2), reverse:true },
+    { key: 'upCapt',      label: 'Up Capt',     fmt: v=>v.toFixed(2) },
+    { key: 'mdd',         label: 'Avg MDD',     fmt: v=>`${(v*100).toFixed(1)}%`, reverse:true },
+    { key: 'bearCorr',    label: 'Bear Corr',   fmt: v=>v.toFixed(3), reverse:true },
+    { key: 'tailBeta',    label: 'Tail Beta',   fmt: v=>v.toFixed(2), reverse:true },
+    { key: 'crisisAlpha', label: 'Crisis α',    fmt: v=>`${(v*100).toFixed(3)}%` },
+    { key: 'recovery',    label: 'Recovery',    fmt: v=>v.toFixed(1)+'m', reverse:true },
+    { key: 'consistency', label: 'Consist.',    fmt: v=>`${(v*100).toFixed(0)}%` },
+    { key: 'bearSkew',    label: 'Skewness',    fmt: v=>v.toFixed(2) },
+    { key: 'convexity',   label: 'Convexity',   fmt: v=>v.toFixed(2) }
+  ];
+
+  const t = document.getElementById('heatmapTable');
+  // Header
+  const thead = document.createElement('thead');
+  const tr = document.createElement('tr');
+  const th0 = document.createElement('th'); th0.textContent = 'Asset'; tr.appendChild(th0);
+  cols.forEach(c => { const th = document.createElement('th'); th.textContent = c.label; tr.appendChild(th); });
+  thead.appendChild(tr); t.appendChild(thead);
+
+  const mins = {}, maxs = {};
+  cols.forEach(c => {
+    const vals = assets.map(a=>a[c.key]);
+    mins[c.key] = Math.min(...vals); maxs[c.key] = Math.max(...vals);
+  });
+
+  const tbody = document.createElement('tbody');
+  assets.forEach(a => {
+    const row = document.createElement('tr');
+    const td0 = document.createElement('td'); td0.textContent = a.name; row.appendChild(td0);
+    cols.forEach(c => {
+      const td = document.createElement('td');
+      const bg = heatColor(a[c.key], mins[c.key], maxs[c.key], c.reverse||false);
+      td.innerHTML = `<span class="heatmap-cell" style="background:${bg}22;color:${bg}">${c.fmt(a[c.key])}</span>`;
+      row.appendChild(td);
+    });
+    tbody.appendChild(row);
+  });
+  t.appendChild(tbody);
+})();
+
+// ══════════════════════════════════════════════════════════════════
+// PER-PERIOD DATA
+// ══════════════════════════════════════════════════════════════════
+
+const bearPeriods = [
+  { name: '1973–74 Oil Crisis',       dur: 631,  sp500:-0.481, realEstate:null,  tips:null,    usd:null,    chf:null,    jpy:null,    btc:null,  t30: 0.073, t1: 0.152, corp: 0.014, gold: 1.728, oil: 1.171, gsci: 0.573, mf: null,   quality:-0.384, lowvol:-0.238, value: 0.022, smallcap:-0.418 },
+  { name: '1980–82 Double Dip',        dur: 622,  sp500:-0.271, realEstate:null,  tips:null,    usd: 0.283,  chf:-0.152,  jpy:-0.129,  btc:null,  t30:-0.188, t1: 0.233, corp:-0.121, gold:-0.372, oil:-0.033, gsci:-0.143, mf: null,   quality:-0.192, lowvol:-0.121, value:-0.061, smallcap:-0.291 },
+  { name: '1987 Black Monday',         dur: 101,  sp500:-0.336, realEstate:null,  tips:null,    usd:-0.133,  chf: 0.063,  jpy: 0.119,  btc:null,  t30: 0.083, t1: 0.014, corp: 0.027, gold: 0.065, oil:-0.316, gsci:-0.133, mf: 0.082,  quality:-0.262, lowvol:-0.193, value:-0.325, smallcap:-0.383 },
+  { name: '1990 Gulf War',             dur: 87,   sp500:-0.198, realEstate:null,  tips:null,    usd:-0.030,  chf: 0.038,  jpy: 0.077,  btc:null,  t30: 0.060, t1: 0.018, corp: 0.006, gold: 0.027, oil: 0.721, gsci: 0.265, mf: 0.074,  quality:-0.141, lowvol:-0.101, value:-0.208, smallcap:-0.289 },
+  { name: '2000–02 Dot-Com Bust',      dur: 929,  sp500:-0.491, realEstate: 0.077, tips: 0.289,  usd: 0.068,  chf:-0.059,  jpy:-0.039,  btc:null,  t30: 0.441, t1: 0.091, corp: 0.179, gold: 0.119, oil:-0.281, gsci:-0.118, mf: 0.311,  quality:-0.374, lowvol: 0.128, value:-0.213, smallcap:-0.474 },
+  { name: '2007–09 GFC',              dur: 517,  sp500:-0.567, realEstate:-0.687, tips:-0.015, usd: 0.063,  chf: 0.082,  jpy: 0.233,  btc:null,  t30: 0.360, t1: 0.046, corp:-0.238, gold: 0.226, oil:-0.552, gsci:-0.523, mf: 0.188,  quality:-0.434, lowvol:-0.258, value:-0.607, smallcap:-0.591 },
+  { name: '2011 EU Debt Crisis',       dur: 157,  sp500:-0.214, realEstate:-0.195, tips:-0.003, usd: 0.027,  chf: 0.097,  jpy: 0.063,  btc:null,  t30: 0.241, t1: 0.003, corp:-0.016, gold: 0.194, oil:-0.130, gsci:-0.183, mf:-0.042,  quality:-0.146, lowvol:-0.057, value:-0.231, smallcap:-0.266 },
+  { name: '2018 Q4 Selloff',           dur: 95,   sp500:-0.197, realEstate:-0.164, tips:-0.030, usd: 0.041,  chf:-0.005,  jpy: 0.038,  btc:-0.812, t30: 0.022, t1: 0.005, corp:-0.035, gold: 0.019, oil:-0.383, gsci:-0.276, mf: 0.082,  quality:-0.133, lowvol:-0.085, value:-0.194, smallcap:-0.240 },
+  { name: '2020 COVID Crash',          dur: 33,   sp500:-0.340, realEstate:-0.337, tips:-0.096, usd: 0.080,  chf: 0.018,  jpy: 0.019,  btc:-0.506, t30: 0.031, t1: 0.002, corp:-0.165, gold:-0.027, oil:-0.663, gsci:-0.476, mf: 0.017,  quality:-0.270, lowvol:-0.218, value:-0.415, smallcap:-0.395 },
+  { name: '2022 Rate Hike Bear',       dur: 282,  sp500:-0.255, realEstate:-0.337, tips:-0.118, usd: 0.145,  chf:-0.060,  jpy:-0.219,  btc:-0.768, t30:-0.364, t1: 0.008, corp:-0.174, gold:-0.053, oil: 0.136, gsci: 0.226, mf: 0.235,  quality:-0.200, lowvol:-0.118, value:-0.071, smallcap:-0.249 },
+];
+
+const bullPeriods = [
+  { name: 'Bull 19: 1970–1973',        dur: 960,  sp500: 0.732, realEstate:null,  tips:null,    usd:null,    chf:null,    jpy:null,    btc:null,  t30:null,   t1:null,   corp:null,   gold: 2.406, oil:null,   gsci:null,  mf:null,    quality: 0.824, lowvol: 0.548, value: 1.088, smallcap: 1.201 },
+  { name: 'Bull 20: 1974–1981',        dur: 2218, sp500: 1.256, realEstate:null,  tips:null,    usd:null,    chf:null,    jpy:null,    btc:null,  t30:-0.039, t1: 0.693, corp: 0.521, gold: 6.812, oil: 2.834, gsci: 2.318, mf:null,    quality: 0.971, lowvol: 0.898, value: 2.152, smallcap: 1.877 },
+  { name: 'Bull 21: 1982–1987',        dur: 1840, sp500: 2.284, realEstate:null,  tips:null,    usd:-0.222,  chf: 0.519,  jpy: 0.512,  btc:null,  t30: 1.019, t1: 0.553, corp: 0.832, gold: 0.189, oil:-0.397, gsci:-0.089, mf:null,    quality: 2.498, lowvol: 1.765, value: 3.201, smallcap: 3.614 },
+  { name: 'Bull 22: 1987–2000',        dur: 4494, sp500: 8.214, realEstate:null,  tips:null,    usd: 0.004,  chf:-0.021,  jpy:-0.247,  btc:null,  t30: 2.487, t1: 1.034, corp: 2.216, gold:-0.283, oil: 0.311, gsci: 0.079, mf: 2.131,  quality:10.453, lowvol: 4.998, value:11.782, smallcap:11.327 },
+  { name: 'Bull 23: 2001 Sep Bounce',  dur: 105,  sp500: 0.215, realEstate: 0.113, tips: 0.027,  usd:-0.030,  chf: 0.048,  jpy: 0.015,  btc:null,  t30:-0.013, t1: 0.007, corp: 0.051, gold: 0.027, oil: 0.188, gsci: 0.133, mf:-0.023,  quality: 0.151, lowvol: 0.089, value: 0.253, smallcap: 0.271 },
+  { name: 'Bull 24: 2002–2007',        dur: 1904, sp500: 1.012, realEstate: 0.983, tips: 0.188,  usd:-0.272,  chf: 0.243,  jpy: 0.062,  btc:null,  t30: 0.341, t1: 0.195, corp: 0.413, gold: 1.396, oil: 1.924, gsci: 1.508, mf: 0.462,  quality: 0.729, lowvol: 0.759, value: 1.389, smallcap: 1.501 },
+  { name: 'Bull 25: Nov–Jan 2009',     dur: 47,   sp500: 0.243, realEstate: 0.221, tips: 0.050,  usd:-0.032,  chf: 0.017,  jpy: 0.024,  btc:null,  t30:-0.033, t1: 0.002, corp: 0.089, gold: 0.110, oil: 0.212, gsci: 0.174, mf: 0.022,  quality: 0.189, lowvol: 0.152, value: 0.231, smallcap: 0.287 },
+  { name: 'Bull 26: 2009–2020',        dur: 3994, sp500: 5.296, realEstate: 4.231, tips: 0.612,  usd: 0.194,  chf:-0.188,  jpy:-0.331,  btc:null,  t30: 1.871, t1: 0.062, corp: 1.814, gold: 0.837, oil: 0.104, gsci: 0.072, mf: 0.291,  quality: 5.738, lowvol: 3.654, value: 3.882, smallcap: 5.114 },
+  { name: 'Bull 27: 2020–2022',        dur: 651,  sp500: 1.142, realEstate: 1.018, tips: 0.162,  usd:-0.062,  chf: 0.028,  jpy:-0.129,  btc: 9.124, t30:-0.232, t1: 0.005, corp: 0.176, gold: 0.042, oil: 3.198, gsci: 1.882, mf:-0.028,  quality: 0.904, lowvol: 0.754, value: 1.312, smallcap: 1.188 },
+  { name: 'Bull 28: 2022–2026',        dur: 1241, sp500: 0.914, realEstate: 0.231, tips: 0.088,  usd:-0.061,  chf: 0.091,  jpy:-0.144,  btc: 2.813, t30:-0.124, t1: 0.092, corp: 0.191, gold: 0.831, oil:-0.158, gsci:-0.092, mf: 0.212,  quality: 0.987, lowvol: 0.518, value: 0.712, smallcap: 0.683 },
+];
+
+const periodCols = [
+  { key: 'sp500',      label: 'S&P 500' },
+  { key: 'realEstate', label: 'US RE' },
+  { key: 'tips',       label: 'TIPS' },
+  { key: 'usd',        label: 'USD Idx' },
+  { key: 'chf',        label: 'CHF/USD' },
+  { key: 'jpy',        label: 'JPY/USD' },
+  { key: 'btc',        label: 'Bitcoin' },
+  { key: 't30',        label: 'T-30Y' },
+  { key: 't1',         label: 'T-1Y' },
+  { key: 'corp',       label: 'Corp Bd' },
+  { key: 'gold',       label: 'Gold' },
+  { key: 'oil',        label: 'Oil' },
+  { key: 'gsci',       label: 'GSCI' },
+  { key: 'mf',         label: 'Mgd Fut' },
+  { key: 'quality',    label: 'Quality' },
+  { key: 'lowvol',     label: 'Low Vol' },
+  { key: 'value',      label: 'Value' },
+  { key: 'smallcap',   label: 'Sm Cap' },
+];
+
+// Two-slope solid fill: red (negative) → dark (zero) → green (positive)
+// Scaled symmetrically by per-column absolute max
+function periodCellColor(val, absMax) {
+  const t = Math.max(-1, Math.min(1, val / (absMax || 1)));
+  let r, g, b;
+  if (t < 0) {
+    const s = -t;
+    r = Math.round(100 + 130 * s);
+    g = Math.round(40  -  20 * s);
+    b = Math.round(40  -  20 * s);
+  } else {
+    const s = t;
+    r = Math.round(30  +  20 * (1 - s));
+    g = Math.round(120 + 100 * s);
+    b = Math.round(50  +  10 * (1 - s));
+  }
+  const lum = 0.299 * r/255 + 0.587 * g/255 + 0.114 * b/255;
+  return { bg: `rgb(${r},${g},${b})`, dark: lum > 0.38 };
+}
+
+function buildPeriodTable(tableId, periods) {
+  const t = document.getElementById(tableId);
+  t.style.borderCollapse = 'separate';
+  t.style.borderSpacing = '2px';
+
+  // Per-column absolute max for symmetric scaling
+  const colAbsMax = {};
+  periodCols.forEach(c => {
+    const vals = periods.map(p => p[c.key]).filter(v => v != null && !isNaN(v));
+    colAbsMax[c.key] = Math.max(...vals.map(Math.abs), 0.001);
+  });
+
+  // ── HEADER ──
+  const thead = document.createElement('thead');
+  const tr = document.createElement('tr');
+  const th0 = document.createElement('th');
+  th0.textContent = 'Period';
+  th0.style.cssText = 'text-align:left; min-width:185px; padding:8px 12px; position:sticky; left:0; background:#111318; z-index:3; font-size:10px; color:#6b7280;';
+  tr.appendChild(th0);
+  periodCols.forEach(c => {
+    const th = document.createElement('th');
+    th.textContent = c.label;
+    th.style.cssText = 'text-align:center; padding:6px 2px; font-size:10px; letter-spacing:0.04em; white-space:nowrap; min-width:62px; color:#9ca3af;';
+    tr.appendChild(th);
+  });
+  thead.appendChild(tr);
+  t.appendChild(thead);
+
+  // ── BODY ──
+  const tbody = document.createElement('tbody');
+  periods.forEach(p => {
+    const row = document.createElement('tr');
+
+    // Sticky label cell
+    const td0 = document.createElement('td');
+    td0.style.cssText = 'position:sticky; left:0; background:#111318; z-index:2; padding:6px 14px 6px 12px; white-space:nowrap; border-radius:3px;';
+    td0.innerHTML = `<div style="color:#e2e4ea;font-weight:500;font-size:11.5px;">${p.name}</div><div style="color:#4b5563;font-size:9px;font-family:var(--font-mono);margin-top:1px;">${p.dur} days</div>`;
+    row.appendChild(td0);
+
+    periodCols.forEach(c => {
+      const td = document.createElement('td');
+      td.style.cssText = 'padding:0; border-radius:3px; overflow:hidden;';
+      const val = p[c.key];
+      if (val == null || isNaN(val)) {
+        td.style.background = '#13151c';
+        td.innerHTML = `<div style="width:62px;height:40px;display:flex;align-items:center;justify-content:center;color:#272b38;font-family:var(--font-mono);font-size:12px;">·</div>`;
+      } else {
+        const { bg, dark } = periodCellColor(val, colAbsMax[c.key]);
+        const ink = dark ? 'rgba(0,0,0,0.82)' : 'rgba(255,255,255,0.95)';
+        const sign = val >= 0 ? '+' : '';
+        const pct = (val * 100).toFixed(1);
+        td.style.background = bg;
+        td.innerHTML = `<div style="width:62px;height:40px;display:flex;align-items:center;justify-content:center;font-family:var(--font-mono);font-size:10.5px;font-weight:700;color:${ink};letter-spacing:-0.02em;">${sign}${pct}%</div>`;
+      }
+      row.appendChild(td);
+    });
+    tbody.appendChild(row);
+  });
+  t.appendChild(tbody);
+}
+
+buildPeriodTable('bearPeriodTable', bearPeriods);
+buildPeriodTable('bullPeriodTable', bullPeriods);
+
+// ══════════════════════════════════════════════════════════════════
+// ASSET MAP
+// ══════════════════════════════════════════════════════════════════
+
+(function(){
+  // Build scatter from assets array — x = bearCorr, y = bearRet
+  const mapData = assets.map((a, i) => ({
+    x: a.bearCorr,
+    y: a.bearRet,
+    label: a.name.replace(' (FF)', ''),
+    full: a.name,
+    isSP: a.name === 'S&P 500',
+    color: (a.bearCorr < 0 && a.bearRet > 0)  ? '#00ff00' :
+           (a.bearCorr >= 0 && a.bearRet > 0)  ? '#ffd700' :
+           (a.bearCorr < 0 && a.bearRet <= 0)  ? '#4a9eff' :
+                                                   '#e84040',
+  }));
+
+  new Chart(document.getElementById('assetMapCanvas'), {
+    type: 'scatter',
+    data: {
+      datasets: mapData.map(d => ({
+        label: d.full,
+        data: [{ x: d.x, y: d.y }],
+        backgroundColor: d.isSP ? 'rgba(255,255,255,0.95)' : d.color + 'bb',
+        borderColor: d.isSP ? '#fff' : d.color,
+        borderWidth: d.isSP ? 2 : 1,
+        pointRadius: d.isSP ? 12 : 8,
+        pointStyle: d.isSP ? 'star' : 'circle',
+        pointHoverRadius: 11,
+      }))
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: ctx => {
+              const d = mapData[ctx.datasetIndex];
+              return `${d.full}  |  Corr: ${ctx.parsed.x.toFixed(3)}  |  Bear Ret: ${(ctx.parsed.y*100).toFixed(2)}%`;
+            }
+          }
+        }
+      },
+      scales: {
+        x: {
+          grid: { color: 'rgba(51,51,51,0.6)' },
+          ticks: { color: '#fff', font: { size: 10 } },
+          title: { display: true, text: 'Correlation with S&P 500 During Bear Markets', color: '#9ca3af', font: { size: 11, family: "'IBM Plex Mono'" } },
+          min: -1.1, max: 1.1
+        },
+        y: {
+          grid: { color: 'rgba(51,51,51,0.6)' },
+          ticks: { color: '#fff', font: { size: 10 }, callback: v => (v*100).toFixed(1)+'%' },
+          title: { display: true, text: 'Average Monthly Return During Bear Markets', color: '#9ca3af', font: { size: 11, family: "'IBM Plex Mono'" } },
+        }
+      }
+    },
+    plugins: [{
+      id: 'assetMapOverlay',
+      afterDraw(chart) {
+        const { ctx, chartArea, scales } = chart;
+
+        // Crosshair lines
+        const x0 = scales.x.getPixelForValue(0);
+        const y0 = scales.y.getPixelForValue(0);
+        ctx.save();
+        ctx.strokeStyle = 'rgba(255,255,255,0.35)';
+        ctx.setLineDash([6, 4]);
+        ctx.lineWidth = 1.5;
+        ctx.beginPath(); ctx.moveTo(x0, chartArea.top); ctx.lineTo(x0, chartArea.bottom); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(chartArea.left, y0); ctx.lineTo(chartArea.right, y0); ctx.stroke();
+        ctx.setLineDash([]);
+
+        // Quadrant background tints
+        const quadrants = [
+          { x1: chartArea.left, y1: chartArea.top,   x2: x0, y2: y0,              color: 'rgba(0,255,0,0.04)',    label: 'BEST HEDGES\nNeg Corr · Pos Return',  lx: chartArea.left + 10, ly: chartArea.top + 18,   align: 'left',  labelColor: '#00ff00' },
+          { x1: x0,             y1: chartArea.top,   x2: chartArea.right, y2: y0, color: 'rgba(255,215,0,0.04)',  label: 'CRISIS ALPHA\nPos Corr · Pos Return',   lx: chartArea.right - 10, ly: chartArea.top + 18,  align: 'right', labelColor: '#ffd700' },
+          { x1: chartArea.left, y1: y0,              x2: x0, y2: chartArea.bottom, color: 'rgba(74,158,255,0.04)', label: 'DIVERSIFIERS\nNeg Corr · Neg Return',  lx: chartArea.left + 10, ly: chartArea.bottom - 28, align: 'left', labelColor: '#4a9eff' },
+          { x1: x0,             y1: y0,              x2: chartArea.right, y2: chartArea.bottom, color: 'rgba(232,64,64,0.04)',  label: 'LOSERS\nPos Corr · Neg Return', lx: chartArea.right - 10, ly: chartArea.bottom - 28, align: 'right', labelColor: '#e84040' },
+        ];
+        quadrants.forEach(q => {
+          ctx.fillStyle = q.color;
+          ctx.fillRect(q.x1, q.y1, q.x2 - q.x1, q.y2 - q.y1);
+          ctx.fillStyle = q.labelColor;
+          ctx.globalAlpha = 0.35;
+          ctx.font = "bold 11px 'IBM Plex Mono'";
+          ctx.textAlign = q.align;
+          const lines = q.label.split('\n');
+          lines.forEach((line, li) => ctx.fillText(line, q.lx, q.ly + li * 15));
+          ctx.globalAlpha = 1;
+        });
+
+        // Point labels
+        mapData.forEach((d, i) => {
+          const px = scales.x.getPixelForValue(d.x);
+          const py = scales.y.getPixelForValue(d.y);
+          ctx.save();
+          ctx.fillStyle = d.isSP ? '#ffffff' : d.color;
+          ctx.font = d.isSP ? "bold 10px 'IBM Plex Mono'" : "9px 'IBM Plex Mono'";
+          ctx.textAlign = 'left';
+          // nudge labels: offset right except for far-right assets
+          const xOff = d.x > 0.8 ? -7 : 8;
+          const yOff = -6;
+          ctx.fillText(d.label.substring(0, 16), px + xOff, py + yOff);
+          ctx.restore();
+        });
+      }
+    }]
+  });
+})();
+
+// ── TAB NAVIGATION ────────────────────────────────────────────────
+function showSection(id) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  event.target.classList.add('active');
+}
+</script>
+</body>
+</html>
